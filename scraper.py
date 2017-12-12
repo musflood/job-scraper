@@ -7,8 +7,11 @@
 - The link to the actual job posting
 """
 from bs4 import BeautifulSoup as bs
-from datetime.datetime import now
+from datetime import datetime
+import os
 import requests
+
+DOMAIN = 'https://stackoverflow.com/jobs'
 
 
 def scrape_for_jobs(response):
@@ -22,9 +25,12 @@ def scrape_for_jobs(response):
     all_job_data = []
 
     for job in jobs:
-        languages = job.find('div', class_='-tags').get_text()
+        languages = job.find('div', class_='-tags')
 
-        if 'python' not in languages:
+        if not languages:
+            continue
+
+        if 'python' not in languages.get_text():
             continue
 
         job_data = []
@@ -37,31 +43,43 @@ def scrape_for_jobs(response):
         job_data.append(company_name if company_name else '')
 
         company_location = company.find('div', class_='-location').text.strip('\r\n -')
-        job_data.append(company_location if company_location else '')
+        job_data.append('"{}"'.format(company_location) if company_location else '')
 
         date_posted = job.find('p', class_='-posted-date').text.strip()
         job_data.append(date_posted if date_posted else '')
 
         link = job.find('a', class_='job-link').get('href')
-        full_link = 'https://stackoverflow.com/jobs' + link
+        full_link = DOMAIN + link
         job_data.append(full_link)
 
         all_job_data.append(job_data)
 
     save_results(all_job_data)
 
-    next_page = content.find('a', class_='test-pagination-next').get('href')
-    return 'https://stackoverflow.com/jobs' + next_page
-
 
 def save_results(results):
     """Save the scraping results to a file."""
-    output_file = 'Python jobs - {}.csv'.format(now().strftime('%m-%d-%y'))
+    dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results')
+    output_file = 'Python jobs - {}.csv'.format(datetime.now().strftime('%m-%d-%y'))
+    output_path = os.path.join(dir_path, output_file)
 
-    with open(output_file, 'a') as output:
-        output.write(results)
+    if not os.path.isfile(output_path):
+        with open(output_path, 'w') as output:
+            output.write('Job Title,Company,Location,Date Posted,Link')
+
+    with open(output_path, 'a') as output:
+        data = [','.join(job_data) for job_data in results]
+        output.write('\n' + '\n'.join(data))
 
 
-def scrape_all_pages(num_pages=10):
-    """Scrape first num pages of the job postings."""
-    url = 'https://stackoverflow.com/jobs'
+def get_job_page(page_num):
+    """Scrape num page of the job postings."""
+    response = requests.get(DOMAIN + '?pg={}'.format(page_num))
+    return scrape_for_jobs(response)
+
+if __name__ == '__main__':
+    print('Scraping the StackOverflow Job site for Python jobs!')
+    for n in range(1, 11):
+        print('Scraping page {}...'.format(n))
+        get_job_page(n)
+    print('Done!')
