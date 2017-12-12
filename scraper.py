@@ -11,7 +11,7 @@ from datetime import datetime
 import os
 import requests
 
-DOMAIN = 'https://stackoverflow.com/jobs'
+DOMAIN = 'https://stackoverflow.com'
 
 
 def scrape_for_jobs(response):
@@ -54,32 +54,35 @@ def scrape_for_jobs(response):
 
         all_job_data.append(job_data)
 
-    save_results(all_job_data)
+    return all_job_data
 
 
-def save_results(results):
+def save_results(results, output):
     """Save the scraping results to a file."""
-    dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results')
-    output_file = 'Python jobs - {}.csv'.format(datetime.now().strftime('%m-%d-%y'))
-    output_path = os.path.join(dir_path, output_file)
-
-    if not os.path.isfile(output_path):
-        with open(output_path, 'w') as output:
-            output.write('Job Title,Company,Location,Date Posted,Link')
-
-    with open(output_path, 'a') as output:
-        data = [','.join(job_data) for job_data in results]
-        output.write('\n' + '\n'.join(data))
+    data = [','.join(job_data) for job_data in results]
+    output.write('\n' + '\n'.join(data))
 
 
 def get_job_page(page_num):
     """Scrape num page of the job postings."""
-    response = requests.get(DOMAIN + '?pg={}'.format(page_num))
+    response = requests.get(DOMAIN + '/jobs?pg={}'.format(page_num))
     return scrape_for_jobs(response)
 
 if __name__ == '__main__':
+    dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results')
+    output_file = 'Python jobs - {}.csv'.format(datetime.now().strftime('%m-%d-%y'))
+    output_path = os.path.join(dir_path, output_file)
+
+    with open(output_path, 'w') as output:
+        output.write('Job Title,Company,Location,Date Posted,Link')
+
+    output = open(output_path, 'a')
+
     print('Scraping the StackOverflow Job site for Python jobs!')
     for n in range(1, 11):
         print('Scraping page {}...'.format(n))
-        get_job_page(n)
-    print('Done!')
+        data = get_job_page(n)
+        save_results(data, output)
+
+    output.close()
+    print('Done! Results saved in results/{}'.format(output_file))
